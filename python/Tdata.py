@@ -12,19 +12,19 @@ class Tdata:
     
     Parameters
     ----------
-    data : matrix of number, training data instances' feature values.
+    `data` : matrix of number, training data instances' feature values.
         default = []
     
-    trgt : array of number, training data instances' target class. Must
-        have the same size as data. default = []
+    `trgt` : array of number, training data instances' target class. Must
+        have the same size as `data`. default = []
     
     Attributes
     ----------
-    size : int, number of instances.
+    `size` : int, number of instances.
     
-    data : matrix of number, training data instances' features value.
+    `data` : matrix of number, training data instances' features value.
 
-    trgt : array of number, training data instances' target class.
+    `trgt` : array of number, training data instances' target class.
     """
 
     def __init__(self, data: [[number]] = [], trgt: [number] = []):
@@ -48,11 +48,11 @@ class Tdata:
         
         Parameters
         ----------
-        None
+        `None`
 
         Returns
         -------
-        size : int, number of instances
+        `size` : int, number of instances
         """
         return self.__size
     
@@ -62,11 +62,11 @@ class Tdata:
         
         Parameters
         ----------
-        None
+        `None`
 
         Returns
         -------
-        size : matrix of number, instances' features value
+        `size` : matrix of number, instances' features value
         """
         return self.__data
     
@@ -76,11 +76,11 @@ class Tdata:
         
         Parameters
         ----------
-        idx : int, index of instance
+        `idx` : int, index of instance
         
         Returns
         -------
-        ins : array of number, instance's features value
+        `ins` : array of number, instance's features value
         """
         return self.__data[idx]
     
@@ -90,11 +90,11 @@ class Tdata:
         
         Parameters
         ----------
-        None
+        `None`
         
         Returns
         -------
-        trgt : array of number, instances' target class
+        `trgt` : array of number, instances' target class
         """
         return self.__trgt
     
@@ -104,11 +104,11 @@ class Tdata:
         
         Parameters
         ----------
-        idx : int, index of instance
+        `idx` : int, index of instance
 
         Returns
         -------
-        trgt : number, instance's target class
+        `trgt` : number, instance's target class
         """
         return self.__trgt[idx]
 
@@ -118,11 +118,11 @@ class Tdata:
         
         Parameters
         ----------
-        fileName : str, target filename. must include '.json' extension
+        `fileName` : str, target filename. must include '.json' extension
         
         Returns
         -------
-        None
+        `None`
         """
         data = {
             "size" : self.__size,
@@ -139,11 +139,11 @@ class Tdata:
         
         Parameters
         ----------
-        fileName : str, target filename. must include '.json' extension
+        `fileName` : str, target filename. must include '.json' extension
 
         Returns
         -------
-        None
+        `None`
         """
         with open(fileName, 'r') as file:
             jsonObj = json.load(file)
