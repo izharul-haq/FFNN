@@ -12,19 +12,19 @@ class Tdata:
     
     Parameters
     ----------
-    data : [[number]], training data instances' feature values.
+    data : matrix of number, training data instances' feature values.
         default = []
     
-    trgt : [number], training data instances' target class. Must
+    trgt : array of number, training data instances' target class. Must
         have the same size as data. default = []
     
     Attributes
     ----------
     size : int, number of instances.
     
-    data : [[number]], training data instances' features value.
+    data : matrix of number, training data instances' features value.
 
-    trgt : [number], training data instances' target class.
+    trgt : array of number, training data instances' target class.
     """
 
     def __init__(self, data: [[number]] = [], trgt: [number] = []):
@@ -66,7 +66,7 @@ class Tdata:
 
         Returns
         -------
-        size : [[number]], instances' features value
+        size : matrix of number, instances' features value
         """
         return self.__data
     
@@ -80,7 +80,7 @@ class Tdata:
         
         Returns
         -------
-        ins : [number], instance's features value
+        ins : array of number, instance's features value
         """
         return self.__data[idx]
     
@@ -94,7 +94,7 @@ class Tdata:
         
         Returns
         -------
-        trgt : [number], instances' target class
+        trgt : array of number, instances' target class
         """
         return self.__trgt
     
