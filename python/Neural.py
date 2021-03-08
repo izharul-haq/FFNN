@@ -7,8 +7,6 @@ from graphviz import Graph
 from math import exp
 from typing import List, Tuple, Union
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import json
 
 class Neural:
@@ -53,7 +51,8 @@ class Neural:
     
         - 'none' : none
         - 'sigm' : sigmoid
-        - 'relu' : ReLu
+        - 'relu' : ReLU
+        - 'lelu' : leaky ReLU
         - 'linr' : linear
         - 'sfmx' : softmax
     """
@@ -257,7 +256,6 @@ class Neural:
         """
         return 1 / (1 + exp(-x))
     
-    # TODO : implement sigmoid derivative function
     def __sigmoid_prime(self, x: float) -> float:
         """Calculate sigmoid derivative value from given x
         with f'(x) = f(x) * (1 - f(x)).
@@ -272,7 +270,8 @@ class Neural:
         float,
             result of sigmoid derivative function
         """
-        pass
+        temp = self.__sigmoid(x)
+        return  temp * (1 - temp)
     
     def __reLU(self, x: float) -> float:
         """Calculate ReLU activation value from given x
@@ -290,8 +289,7 @@ class Neural:
         """
         return max(0, x)
     
-    # TODO : implement sigmoid derivative function
-    def __reLU_prime(self, x: float) -> float:
+    def __reLU_prime(self, x: float) -> int:
         """Calculate ReLU derivative value from given x
         with f'(x) = 1 if x > 0 else 0.
         
@@ -302,10 +300,54 @@ class Neural:
         
         Returns
         -------
-        float,
+        int,
             result of ReLU derivative function
         """        
-        pass
+        if (x > 0):
+            return 1
+        else:
+            return 0
+    
+    def __leLU(self, x: float, a: float) -> float:
+        """Calculate leaky ReLU activation value from
+        given x with f(x) = max(a * x, x).
+        
+        Parameters
+        ----------
+        `x` : float,
+            input for leaky ReLU activation function
+            
+        `a` : float,
+            leak constant
+        
+        Returns
+        -------
+        float,
+            result of leaky ReLU activation function
+        """
+        return max(a * x, x)
+    
+    def __leLU_prime(self, x: float, a: float) -> float:
+        """Calculate leaky ReLU derivative value from given x
+        with f'(x) = 1 if x > 0 else a.
+        
+        Parameters
+        ----------
+        `x` : float,
+            input for leaky ReLU derivative function
+            
+        `a` : float,
+            leak constant    
+        
+        Returns
+        -------
+        float,
+            result of leaky ReLU derivative function
+        """
+        if (x > 0):
+            return 1
+        else:
+            return a
 
     def __softmax(self, x: List[float]) -> List[float]:
         """Calculate softmax activation value from given x
@@ -426,7 +468,7 @@ class Neural:
             
         `path` : str, optional,
             existing path to write file, by default "". Example:
-            `..\json`
+            `../json`
         """
         neural = {
             "depth" : self.__depth,
