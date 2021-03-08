@@ -1,8 +1,8 @@
 """File to implement Tdata class which is used when
 training neural network."""
 
-from lib.utils.exceptions import SizeError
-from lib.utils.type import number
+from python.utils.exceptions import SizeError
+from typing import List
 import numpy as np
 import json
 
@@ -12,22 +12,27 @@ class Tdata:
     
     Parameters
     ----------
-    `data` : matrix of number, training data instances' feature values.
+    `data` : List[List[float]], training data instances' feature values.
         default = []
     
-    `trgt` : array of number, training data instances' target class. Must
+    `trgt` : List[float], training data instances' target class. Must
         have the same size as `data`. default = []
     
     Attributes
     ----------
     `size` : int, number of instances.
     
-    `data` : matrix of number, training data instances' features value.
+    `data` : List[List[float]], training data instances' features value.
 
-    `trgt` : array of number, training data instances' target class.
+    `trgt` : List[float], training data instances' target class.
+
+    Raises
+    ------
+    `SizeError`
+        raised when number of data doesn't match with number of target.
     """
 
-    def __init__(self, data: [[number]] = [], trgt: [number] = []):
+    def __init__(self, data: List[List[float]] = [], trgt: List[float] = []):
         if len(data) != len(trgt):
             raise SizeError("Number of data doesn't match with number of target")
         
@@ -44,85 +49,81 @@ class Tdata:
     
 
     def get_size(self) -> int:
-        """get number of instances from training data.
+        """Get number of instances from training data.
         
-        Parameters
-        ----------
-        `None`
-
         Returns
         -------
-        `size` : int, number of instances
+        int,
+            number of instances
         """
         return self.__size
     
-    def get_instances(self) -> [[number]]:
+    def get_instances(self) -> List[List[float]]:
         """get all instances' features value from
         training data.
         
-        Parameters
-        ----------
-        `None`
-
         Returns
         -------
-        `size` : matrix of number, instances' features value
+        List[List[float]],
+            instances' features value
         """
         return self.__data
     
-    def get_instance(self, idx: int) -> [number]:
+    def get_instance(self, idx: int) -> List[float]:
         """Get an instance from training data with
         given index.
         
         Parameters
         ----------
-        `idx` : int, index of instance
+        `idx` : int,
+            index of instance
         
         Returns
         -------
-        `ins` : array of number, instance's features value
+        List[float],
+            instance's features value
         """
         return self.__data[idx]
     
-    def get_targets(self) -> [number]:
+    def get_targets(self) -> List[float]:
         """Get all target for every instances from
         training data.
         
-        Parameters
-        ----------
-        `None`
-        
         Returns
         -------
-        `trgt` : array of number, instances' target class
+        List[float],
+            instances' target class
         """
         return self.__trgt
     
-    def get_target(self, idx: int) -> number:
+    def get_target(self, idx: int) -> float:
         """Get a target for an instance with given
         index from training data.
         
         Parameters
         ----------
-        `idx` : int, index of instance
+        `idx` : int,
+            index of instance
 
         Returns
         -------
-        `trgt` : number, instance's target class
+        float,
+            instance's target class
         """
         return self.__trgt[idx]
 
 
-    def save(self, fileName: str) -> None:
-        """Save training data (data & target) to an external .json file.
+    def save(self, file_name: str, path: str = "") -> None:
+        """Save training data (data & target) to an external `.json` file.
         
         Parameters
         ----------
-        `fileName` : str, target filename. must include '.json' extension
-        
-        Returns
-        -------
-        `None`
+        `file_name` : str,
+            name of file to write. If such file doesn't exist a new
+            file will be created. Must include `.json` extension
+            
+        `path` : str, optional,
+            existing path to write file, by default ""
         """
         data = {
             "size" : self.__size,
@@ -130,24 +131,23 @@ class Tdata:
             "trgt" : self.__trgt
         }
         
-        jsonObj = json.dumps(data, indent=2)
-        with open(fileName, 'w') as file:
-            file.write(jsonObj)
+        json_obj = json.dumps(data, indent=2)
+        with open(path + file_name, 'w') as file:
+            file.write(json_obj)
     
-    def load(self, fileName: str) -> None:
-        """Load training data (data & target) from an external .json file.
+    def load(self, file_path: str) -> None:
+        """Load training data (data & target) from an external `.json` file.
         
         Parameters
         ----------
-        `fileName` : str, target filename. must include '.json' extension
-
-        Returns
-        -------
-        `None`
+        `file_path` : str,
+            path of file to read. If such path doesn't exist a
+            FileNotFoundError will raise. Must include `.json`
+            extension. Example : `../json/neural.json`
         """
-        with open(fileName, 'r') as file:
-            jsonObj = json.load(file)
+        with open(file_path, 'r') as file:
+            json_obj = json.load(file)
             
-            self.__size = jsonObj['size']
-            self.__data = jsonObj['data']
-            self.__trgt = jsonObj['trgt']
+            self.__size = json_obj['size']
+            self.__data = json_obj['data']
+            self.__trgt = json_obj['trgt']
