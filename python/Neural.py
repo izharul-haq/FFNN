@@ -1,10 +1,7 @@
-"""File to implement Neural class which is
-implemented neural network."""
-
 from python.utils.exceptions import SizeError
 from python.Tdata import Tdata
 from graphviz import Graph
-from math import exp
+from math import exp, inf
 from typing import List, Tuple, Union
 import numpy as np
 import json
@@ -40,10 +37,10 @@ class Neural:
 
     `neuron_each_layer` : List[int], number of neurons for each layer.
 
-    `weights` : List[List[float]], neural network weights for each connection
+    `weights` : List[ndarray], neural network weights for each connection
         between i-th layer to (i+1)-th layer.
 
-    `biases` : List[float], bias for each layer (exc. output layer).
+    `biases` : ndarray, bias for each layer (exc. output layer).
 
     `activation_funcs` : List[str], list of activation function acronym for
         each layer (exc. input layer). Default activation for each layer is
@@ -57,32 +54,30 @@ class Neural:
         - 'sfmx' : softmax
     """
 
-    def __init__(self, neuron_each_layer: List[int] = [], random_weight: bool = True, weight_range: Tuple[float, float] = (-1, 1), random_bias: bool = False):
+    def __init__(self, neuron_each_layer: List[int] = [0, 0], random_weight: bool = True, weight_range: Tuple[float, float] = (-1, 1), random_bias: bool = False):
         self.__depth = len(neuron_each_layer)
         self.__neuron_each_layer = neuron_each_layer
         self.__weights = []
-        self.__biases = []
+        self.__biases = np.zeros(self.__depth - 1)
         self.__activation_funcs = ["none"] + ["sigm" for i in range(self.__depth - 1)]
         
         # Map to get each activation function easier
-        self.__activationMap = {"sigm": self.__sigmoid, "linr": self.__linear,
+        self.__activation_map = {"sigm": self.__sigmoid, "linr": self.__linear,
                                 "relu": self.__reLU, "sfmx": self.__softmax}
         
         for i in range(self.__depth - 1):
             # Initializing i-th layer
-            self.__weights.append([])
+            layer_src = self.__neuron_each_layer[i] + 1
+            layer_dst = self.__neuron_each_layer[i+1]
+            self.__weights.append(np.zeros([layer_src, layer_dst]))
             
-            for j in range(self.__neuron_each_layer[i] + 1):
-                # Initializing j-th neuron in i-th layer, 0-th neuron is bias
-                self.__weights[i].append([])
-
+            for j in range(self.__neuron_each_layer[i]+1):
                 for k in range(self.__neuron_each_layer[i + 1]):
-                    # initializing weight
                     w = 0
                     if random_weight:
                         w = np.random.uniform(weight_range[0], high=weight_range[1])
                     
-                    self.__weights[i][j].append(w)
+                    self.__weights[i][j][k] = w
         
         for i in range(self.__depth - 1):
             # Initializing i-th bias
@@ -90,7 +85,7 @@ class Neural:
             if random_bias:
                 b = np.random.uniform(-1, high=1)
             
-            self.__biases.append(b)
+            self.__biases[i] = b
     
     
     def get_depth(self) -> int:
@@ -103,7 +98,7 @@ class Neural:
         """
         return self.__depth
     
-    def get_weights_from_layer(self, i: int) -> List[List[float]]:
+    def get_weights_from_layer(self, i: int) -> np.ndarray:
         """Get list of weights from connection between
         i-th layer and (i+1)-th layer.
         
@@ -114,7 +109,7 @@ class Neural:
         
         Returns
         -------
-        List[List[float]],
+        ndarray,
             list of weight between i-th and (i+1)-th layer
         """
         return self.__weights[i]
@@ -174,289 +169,327 @@ class Neural:
         self.__activation_funcs[layer] = func
 
 
-    def __sum(self, inputs: List[List[float]], weights: List[List[float]]) -> List[List[float]]:
-        """Return summation function for each node with given inputs
-        and weights.
+    def __linear(self, inputs: np.ndarray) -> np.ndarray:
+        """Calculate linear activation value for each element
+        in inputs with f(x) = 1 * x.
         
         Parameters
         ----------
-        `inputs` : List[List[float]],
-            input matrix
-            
-        `weights` : List[List[float]],
-            weight matrix
-            
-        
-        Returns
-        -------
-        List[List[float]],
-            result from `inputs` x `weights`
-        
-        Raises
-        ------
-        `SizeError`
-            raised when `inputs` column doesn't match
-            with `weights` row.
-        """
-        if (len(inputs[0]) != len(weights)):
-            raise SizeError("dimention from each matrix doesn't match")
-
-        mat01 = np.array(inputs)
-        mat02 = np.array(weights)
-        
-        res = np.dot(mat01, mat02)
-        
-        return list(res)
-
-    def __linear(self, x: float) -> float:
-        """Calculate linear activation value from given x
-        with f(x) = 1 * x.
-        
-        Parameters
-        ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for linear activation function
         
         Returns
         -------
-        float,
+        ndarray,
             result of linear activation function
         """
-        return x
+        return inputs
 
-    def __linear_prime(self, x: float) -> float:
-        """Calculate linear derivative value from given x
-        with f(x) = 1.
+    def __linear_prime(self, inputs: np.ndarray) -> np.ndarray:
+        """Calculate linear derivative value for each element
+        in inputs with f(x) = 1.
         
         Parameters
         ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for linear derivative function
         
         Returns
         -------
-        float,
+        ndarray,
             result of linear derivative function
         """        
-        return 1
+        return np.where(inputs == inputs, 1, 0)
     
-    def __sigmoid(self, x: float) -> float:
-        """Calculate sigmoid activation value from given x
-        with f(x) = 1 / (1 + exp(-x)).
+    def __sigmoid(self, inputs: np.ndarray) -> np.ndarray:
+        """Calculate sigmoid activation value for each element
+        in inputs with f(x) = 1 / (1 + exp(-x)).
 
         Parameters
         ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for sigmoid activation function
         
         Returns
         -------
-        float,
+        ndarray,
             result of sigmoid activation function
         """
-        return 1 / (1 + exp(-x))
+        return 1 / (1 + np.exp(-inputs))
     
-    def __sigmoid_prime(self, x: float) -> float:
-        """Calculate sigmoid derivative value from given x
-        with f'(x) = f(x) * (1 - f(x)).
+    def __sigmoid_prime(self, inputs: np.ndarray) -> np.ndarray:
+        """Calculate sigmoid derivative value for each element
+        in inputs with f'(x) = f(x) * (1 - f(x)).
         
         Parameters
         ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for sigmoid derivative function
         
         Returns
         -------
-        float,
+        ndarray,
             result of sigmoid derivative function
         """
-        temp = self.__sigmoid(x)
+        temp = self.__sigmoid(inputs)
         return  temp * (1 - temp)
     
-    def __reLU(self, x: float) -> float:
-        """Calculate ReLU activation value from given x
-        with f(x) = max(0, x).
+    def __reLU(self, inputs: np.ndarray) -> np.ndarray:
+        """Calculate ReLU activation value for each element
+        in inputs with f(x) = max(0, x).
         
         Parameters
         ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for ReLU activation function
         
         Returns
         -------
-        float,
+        ndarray,
             result of ReLU activation function
         """
-        return max(0, x)
+        return np.maximum(0, inputs)
     
-    def __reLU_prime(self, x: float) -> int:
-        """Calculate ReLU derivative value from given x
-        with f'(x) = 1 if x > 0 else 0.
+    def __reLU_prime(self, inputs: np.ndarray) -> np.ndarray:
+        """Calculate ReLU derivative value for each element
+        in inputs with f'(x) = 1 if x > 0 else 0.
         
         Parameters
         ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for ReLU derivative function    
         
         Returns
         -------
-        int,
+        ndarray,
             result of ReLU derivative function
         """        
-        if (x > 0):
-            return 1
-        else:
-            return 0
+        return np.where(inputs > 0, 1, 0)
     
-    def __leLU(self, x: float, a: float) -> float:
-        """Calculate leaky ReLU activation value from
-        given x with f(x) = max(a * x, x).
+    def __leLU(self, inputs: np.ndarray, a: float = 0.001) -> np.ndarray:
+        """Calculate leaky ReLU activation value for each element
+        in inputs with f(x) = max(a * x, x).
         
         Parameters
         ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for leaky ReLU activation function
             
-        `a` : float,
-            leak constant
+        `a` : float, optional,
+            leak constant, by default 0.001
         
         Returns
         -------
-        float,
+        ndarray,
             result of leaky ReLU activation function
         """
-        return max(a * x, x)
+        return np.maximum(a * inputs, inputs)
     
-    def __leLU_prime(self, x: float, a: float) -> float:
-        """Calculate leaky ReLU derivative value from given x
-        with f'(x) = 1 if x > 0 else a.
+    def __leLU_prime(self, inputs: np.ndarray, a: float = 0.001) -> np.ndarray:
+        """Calculate leaky ReLU derivative value for each element
+        in inputs with f'(x) = 1 if x > 0 else a.
         
         Parameters
         ----------
-        `x` : float,
+        `inputs` : ndarray,
             input for leaky ReLU derivative function
             
-        `a` : float,
-            leak constant    
+        `a` : float, optional,
+            leak constant, by default 0.001
         
         Returns
         -------
-        float,
+        ndarray,
             result of leaky ReLU derivative function
         """
-        if (x > 0):
-            return 1
-        else:
-            return a
+        return np.where(inputs > 0, 1, a)
 
-    def __softmax(self, x: List[float]) -> List[float]:
-        """Calculate softmax activation value from given x
-        with f(xi) = exp(xi) / sum(exp(xi)); i = 0, 1, ..., K.
+    def __softmax(self, inputs: np.ndarray) -> np.ndarray:
+        """Calculate softmax activation value for each element
+        in inputs with f(xi) = exp(xi) / sum(exp(xi)); i = 0, 1, ..., K.
         
         Parameters
         ----------
-        `x` : List[float],
+        `inputs` : ndarray,
             inputs for softmax activation function
         
         Returns
         -------
-        List[float],
+        ndarray,
             result of softmax activation function
         """
-        res = []
-        denominator = 0
-        for i in range(len(x)):
-            denominator += exp(x[i])
-        
-        for i in range(len(x)):
-            res.append(exp(x[i]) / denominator)
-
-        return res
+        res = np.exp(inputs)
+        return res / res.sum()
     
-    def __sigma(self, layer: int, x: Union[float, List[float]]) -> List[float]:
-        """Calculate activation function value for each neuron from
-        given layer.
+    def __diff_error_per_weight(self, act_func: str, inputs: np.ndarray, correct_idx: int = 0) -> np.ndarray:
+        """Return value from derivative Error respect to sum.
         
         Parameters
         ----------
-        `layer` : int,
-            index of layer
+        `act_func` : str,
+            activation function used
             
-        `x` : Union[float, List[float]],
-            input(s) for activation function. If activation value is
-            softmax, type for `x` is List[float], else float.
+        `inputs` : ndarray,
+            [description]
+            
+        `correct_idx` : int, optional
+            Correct target class index, only used if
+            activation function used is softmax, by
+            default 0
         
         Returns
         -------
-        List[float],
-            list of activation function value for each neuron from
-            given layer 
+        ndarray,
+            Result from derivative Error respect to sum
         """
-        res = []
-        actFunc = self.__activation_funcs[layer]
-        if actFunc == "sfmx":
-            res = self.__softmax(x)
+        if act_func == "sigm":
+            return self.__sigmoid_prime(inputs)
+        elif act_func == "relu":
+            return self.__reLU_prime(inputs)
+        elif act_func == "lelu":
+            return self.__leLU_prime(inputs)
+        elif act_func == "linr":
+            return self.__linear_prime(inputs)
         else:
-            func = self.__activationMap[actFunc]
-            for i in range(len(x)):
-                res.append(func(x[i]))
-        
-        return res
+            idx = np.where(inputs == inputs)[0]
+            return np.where(idx == correct_idx, -(1 - inputs[idx]), inputs[idx])
 
     
-    def forward(self, instance: List[float]) -> List[float]:        
+    def forward(self, instance: np.ndarray) -> np.ndarray:        
         """Forward propagation implementation with given
         instance's data.
         
         Parameters
         ----------
-        `instance` : List[float],
+        `instance` : ndarray,
             instance's features data
         
         Returns
         -------
-        List[float],
+        ndarray,
             list of results from output layer.
         """
+        self.__neuron_output = [instance]
+        self.__sum = [None]
         inp = instance
         for j in range(1, self.__depth):
             # Create inputs matrix (bias value + input for each layer)
             # and weights matrix
-            inp = [[self.__biases[j-1]] + inp]
+            bias = np.array([self.__biases[j-1]])
+            inp = np.concatenate((bias, inp), axis=None)
             weights = self.get_weights_from_layer(j-1)
             
             # Matrix multiplication (inputs X weights)
-            summ = self.__sum(inp, weights)
+            summ = np.dot(inp, weights)
+            #print(summ)
+
+            # Save summation result (neuron net) for backward propagation
+            self.__sum.append(summ)
 
             # Update results with activation function for this layer
-            summ[0] = self.__sigma(j, summ[0])
+            act = self.__activation_map[self.__activation_funcs[j]]
+            summ = act(summ)
+
+            # Save activation result (neuron output) for backward propagation
+            self.__neuron_output.append(summ)
 
             # Set activation result as input for another layer
-            inp = summ[0]
+            inp = summ
 
         return inp
 
-    # TODO : implement backward propagation section
-    def fit(self, training_data: Tdata, batch_size: int = 1, learning_rate: float = 0.1, threshold: float = 0.001) -> None:
+    # TODO : fixing backward propagation
+    def fit(self, training_data: Tdata, batch_size: int = 1, learning_rate: float = 0.1, threshold: float = 0.001, max_iter: int = 100) -> None:
         """Backpropagation algorithm implementation. Used by neural
         network to learn from given training data.
         
         Parameters
         ----------
-        `trainingData` : Tdata,
-            Training data used to learn.
+        `training_data` : Tdata,
+            training data instance
+
+        `batch_size` : int, optional,
+            number of step before updating weight, by default 1
             
-        `batchSize` : int, optional,
-            [description], by default 1
-            
-        `learningRate` : float, optional,
-            [description], by default 0.1
+        `learning_rate` : float, optional,
+            neural network model learning rate, by default 0.1
             
         `threshold` : float, optional,
-            [description], by default 0.001
-        """ 
+            minimum error value, by default 0.001
+            
+        `max_iter` : int, optional,
+            maximum number of iteration, by default 100
+        """
+        for epoch in range(1):
+            error = 0
+            count = 0
+            neuron_error = [None for i in range(self.__depth)]
+            for i in range(1, training_data.get_size()+1):
+                count += 1
+                inputs = training_data.get_instance(i-1)
+                target = training_data.get_target(i-1)
+
+                # FORWARD PROPAGATION
+                output = self.forward(inputs)
+
+                # BACKWARD PROPAGATION
+                # Calculate error
+                correct_idx = 0
+                if self.__activation_funcs[self.__depth - 1] == "sfmx":
+                    correct_idx = np.where(target == 1)[0][0]
+                    error += -np.log(target[correct_idx])
+                else:
+                    error += (0.5 * (target - output)**2).sum()
+                
+                # Calculate delta_output
+                output_layer_idx = self.__depth - 1
+                act = self.__activation_funcs[output_layer_idx]
+                output_error = (target - output)
+                output_error *= self.__diff_error_per_weight(act, self.__sum[output_layer_idx], correct_idx)
+                #print(output_error)
+                neuron_error[output_layer_idx] = output_error
+
+                # Calculate delta_hidden
+                for j in range(self.__depth - 2, 0, -1):
+                    act = self.__activation_funcs[j]
+                    hidden_error = (self.get_weights_from_layer(j) * neuron_error[j+1]).sum()
+                    hidden_error *= self.__diff_error_per_weight(act, self.__sum[j])
+                    neuron_error[j] = hidden_error
+
+                #print(self.__neuron_output)
+                #print(neuron_error)
+
+                # UPDATE WEIGHT
+                if count % batch_size == 0:
+                    for a in range(self.__depth - 1):
+                        for b in range(self.__neuron_each_layer[a]+1):
+                            for c in range(self.__neuron_each_layer[a+1]):
+                                if b == 0:
+                                    # Update bias weight
+                                    self.__weights[a][b][c] -= learning_rate * neuron_error[a+1][c]
+                                else:
+                                    # Update neuron weight
+                                    self.__weights[a][b][c] -= (learning_rate * self.__neuron_output[a][b-1] * neuron_error[a+1][c])
+            if error < threshold:
+                break
+
+
+    # TODO : implement prediction function
+    def predict(self, prediction_data: Tdata) -> np.ndarray:
+        """Predict class for each instance in prediction data.
+        
+        Parameters
+        ----------
+        `prediction_data` : Tdata,
+            Data to predict
+        
+        Returns
+        -------
+        ndarray,
+            Target class for each instance from prediction data
+        """
         pass
-    
+
     def save(self, file_name: str,  path: str = "") -> None:
         """Save neural network model to an external `.json` file.
         
@@ -470,16 +503,18 @@ class Neural:
             existing path to write file, by default "". Example:
             `../json`
         """
+        weights_list = [weight.tolist() for weight in self.__weights]
+
         neural = {
             "depth" : self.__depth,
             "neuron_each_layer" : self.__neuron_each_layer,
-            "weights" : self.__weights,
-            "biases" : self.__biases,
+            "weights" : weights_list,
+            "biases" : self.__biases.tolist(),
             "activation_funcs" : self.__activation_funcs
         }
         
         json_obj = json.dumps(neural, indent=4)
-        with open(path + '\\' + file_name, 'w') as file:
+        with open(path + '/' + file_name, 'w') as file:
             file.write(json_obj)
     
     def load(self, file_path: str) -> None:
@@ -497,8 +532,8 @@ class Neural:
             
             self.__depth = json_obj['depth']
             self.__neuron_each_layer = json_obj['neuron_each_layer']
-            self.__weights = json_obj['weights']
-            self.__biases = json_obj['biases']
+            self.__weights = [np.array(weight) for weight in json_obj['weights']]
+            self.__biases = np.array(json_obj['biases'])
             self.__activation_funcs = json_obj['activation_funcs']
 
     def show(self, file_name: str, view: bool = False) -> None:
@@ -527,17 +562,17 @@ class Neural:
             
             nodeLabel = ''
             if i == 0:
-                nodeLabel = 'x'
+                node_label = 'x'
             elif i == self.__depth - 1:
-                nodeLabel = 'o'
+                node_label = 'o'
             else:
-                nodeLabel = 'h' + str(i)
+                node_label = 'h' + str(i)
             
             # Adding nodes to subgraph
             for j in range(self.__neuron_each_layer[i] + 1):
-                node = nodeLabel + str(j)
+                node = node_label + str(j)
                 if j == 0:
-                    if nodeLabel == 'o':
+                    if node_label == 'o':
                         pass
                     else:
                         sub_graph.node(node, node, shape='rect')
@@ -549,23 +584,26 @@ class Neural:
             
         # Initialize edges
         for i in range(self.__depth - 1):
-            nodeFrom = ''
-            nodeTrgt = ''
+            node_src = ''
+            node_dst = ''
             if i == 0:
-                nodeFrom = 'x'
-                nodeTrgt = 'h' + str(i+1)
+                node_src = 'x'
+                if self.__depth == 2:
+                    node_dst = 'o'
+                else:
+                    node_dst = 'h' + str(i+1)
             elif i == self.__depth - 2:
-                nodeFrom = 'h' + str(i)
-                nodeTrgt = 'o'
+                node_src = 'h' + str(i)
+                node_dst = 'o'
             else:
-                nodeFrom = 'h' + str(i)
-                nodeTrgt = 'h' + str(i+1)
+                node_src = 'h' + str(i)
+                node_dst = 'h' + str(i+1)
             
             # Initialize edge between j-th neuron from i-th layer to k-th neuron in (i+1)-th layer 
             for j in range(self.__neuron_each_layer[i] + 1):
                 for k in range(1, self.__neuron_each_layer[i+1] + 1):
-                    weight = self.__weights[i][j][k - 1]
-                    nn_model.edge(nodeFrom + str(j), nodeTrgt + str(k), xlabel=str(weight), minlen='5')
+                    weight = round(self.__weights[i][j][k - 1], 2)
+                    nn_model.edge(node_src + str(j), node_dst + str(k), xlabel=str(weight), minlen='5')
         
         # render image
         imgPath = nn_model.render(filename=file_name, directory='img/', view=view, format='png', cleanup=True)
