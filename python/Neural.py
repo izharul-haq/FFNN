@@ -462,7 +462,7 @@ class Neural:
                     weight_matrix = self.get_weights_from_layer(j)[1:]
                     
                     # Calculate sum of dE_per_dh for each hidden unit
-                    dEh_per_do = (weight_matrix * neuron_error[j+1][:, None]).sum(axis=1)
+                    dEh_per_do = (weight_matrix * neuron_error[j+1][None, :]).sum(axis=1)
                     
                     # Calculate dEh_per_dw for each hidden unit
                     dEh_per_dnet = dEh_per_do * self.__do_per_dnet(self.__sum[j], act)
