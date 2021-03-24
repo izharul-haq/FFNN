@@ -2,7 +2,7 @@ from python.utils.exceptions import SizeError
 from python.Tdata import Tdata
 from graphviz import Graph
 from math import exp, inf
-from typing import List, Tuple, Union
+from typing import List, Tuple
 import numpy as np
 import json
 
@@ -320,39 +320,32 @@ class Neural:
         """
         res = np.exp(inputs)
         return res / res.sum()
-    
-    def __diff_error_per_weight(self, act_func: str, inputs: np.ndarray, correct_idx: int = 0) -> np.ndarray:
-        """Return value from derivative Error respect to sum.
+
+    def __do_per_dnet(self, inputs: np.ndarray, act: str) -> np.ndarray:
+        """Calculate do/dnet for each activation function with
+        given input.
         
         Parameters
         ----------
-        `act_func` : str,
-            activation function used
-            
         `inputs` : ndarray,
-            [description]
+            input for derivative activation function
             
-        `correct_idx` : int, optional
-            Correct target class index, only used if
-            activation function used is softmax, by
-            default 0
+        `act` : str,
+            Activaion function for this layer
         
         Returns
         -------
         ndarray,
-            Result from derivative Error respect to sum
+            Result of derivative activation function
         """
-        if act_func == "sigm":
+        if act == "sigm":
             return self.__sigmoid_prime(inputs)
-        elif act_func == "relu":
+        elif act == "relu":
             return self.__reLU_prime(inputs)
-        elif act_func == "lelu":
+        elif act == "lelu":
             return self.__leLU_prime(inputs)
-        elif act_func == "linr":
+        elif act == "linr":
             return self.__linear_prime(inputs)
-        else:
-            idx = np.where(inputs == inputs)[0]
-            return np.where(idx == correct_idx, -(1 - inputs[idx]), inputs[idx])
 
     
     def forward(self, instance: np.ndarray) -> np.ndarray:        
@@ -420,20 +413,20 @@ class Neural:
         `max_iter` : int, optional,
             maximum number of iteration, by default 100
         """
-        for epoch in range(1):
-            error = 0
-            count = 0
+        for epoch in range(max_iter):
+            error = 0; count = 0
             neuron_error = [None for i in range(self.__depth)]
-            for i in range(1, training_data.get_size()+1):
+            data_size = training_data.get_size()
+
+            for i in range(data_size):
                 count += 1
-                inputs = training_data.get_instance(i-1)
-                target = training_data.get_target(i-1)
+                inputs = training_data.get_instance(i)
+                target = training_data.get_target(i)
 
                 # FORWARD PROPAGATION
                 output = self.forward(inputs)
 
-                # BACKWARD PROPAGATION
-                # Calculate error
+                # CALCULATE TOTAL ERROR
                 correct_idx = 0
                 if self.__activation_funcs[self.__depth - 1] == "sfmx":
                     correct_idx = np.where(target == 1)[0][0]
@@ -441,35 +434,51 @@ class Neural:
                 else:
                     error += (0.5 * (target - output)**2).sum()
                 
+                # BACKWARD PROPAGATION
                 # Calculate delta_output
                 output_layer_idx = self.__depth - 1
                 act = self.__activation_funcs[output_layer_idx]
-                output_error = (target - output)
-                output_error *= self.__diff_error_per_weight(act, self.__sum[output_layer_idx], correct_idx)
-                #print(output_error)
-                neuron_error[output_layer_idx] = output_error
-
-                # Calculate delta_hidden
+                dE_per_do = output - target
+                if act != "sfmx":
+                    # Calculate dE_per_dnet if activation function is not softmax
+                    do_per_dnet = self.__do_per_dnet(self.__sum[output_layer_idx], act)
+                    dE_per_dnet = dE_per_do * do_per_dnet
+                else:
+                    # Calculate dE_per_dnet if activation function is softmax
+                    output_idx = np.where(output == output)[0]
+                    dE_per_dnet = np.where(output_idx == correct_idx, output - 1, output)
+                dnet_per_dw = self.__neuron_output[output_layer_idx - 1]
+                dE_per_dw = dE_per_dnet * dnet_per_dw
+                
+                # Save dE_per_dw
+                neuron_error[output_layer_idx] = dE_per_dw
+                
+                # Calculate delta_hidden for each layer
                 for j in range(self.__depth - 2, 0, -1):
+                    # Get activation function for this layer
                     act = self.__activation_funcs[j]
-                    hidden_error = (self.get_weights_from_layer(j) * neuron_error[j+1]).sum()
-                    hidden_error *= self.__diff_error_per_weight(act, self.__sum[j])
-                    neuron_error[j] = hidden_error
-
-                #print(self.__neuron_output)
-                #print(neuron_error)
+                    
+                    # Get weight matrix (without bias)
+                    weight_matrix = self.get_weights_from_layer(j)[1:]
+                    
+                    # Calculate sum of dE_per_dh for each hidden unit
+                    dEh_per_do = (weight_matrix * neuron_error[j+1][:, None]).sum(axis=1)
+                    
+                    # Calculate dEh_per_dw for each hidden unit
+                    dEh_per_dnet = dEh_per_do * self.__do_per_dnet(self.__sum[j], act)
+                    dEh_per_dw = dEh_per_dnet * self.__neuron_output[j-1]
+                    
+                    # Save dEh_per_dw
+                    neuron_error[j] = dEh_per_dw
 
                 # UPDATE WEIGHT
-                if count % batch_size == 0:
+                if count % batch_size == 0 or (count % batch_size != 0 and count == data_size):
                     for a in range(self.__depth - 1):
                         for b in range(self.__neuron_each_layer[a]+1):
                             for c in range(self.__neuron_each_layer[a+1]):
-                                if b == 0:
-                                    # Update bias weight
-                                    self.__weights[a][b][c] -= learning_rate * neuron_error[a+1][c]
-                                else:
-                                    # Update neuron weight
-                                    self.__weights[a][b][c] -= (learning_rate * self.__neuron_output[a][b-1] * neuron_error[a+1][c])
+                                self.__weights[a][b][c] -= learning_rate * neuron_error[a+1][c]
+
+            # Break if error less than threshold
             if error < threshold:
                 break
 
