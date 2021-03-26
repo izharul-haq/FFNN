@@ -32,10 +32,6 @@
         ]
       ]
     ],
-    "biases": [
-      1,
-      1
-    ],
     "activation_funcs": [
       "none",
       "sigm",

@@ -25,11 +25,6 @@ class Neural:
     `weight_range` : Tuple[float, float], range of initialized weight value
         (upper bound exclusive). default value = (-1, 1). Only used if
         `random_weight` is set to True.
-
-    `random_bias` : bool, decide wether biases are initialized randomly
-        or not. default value = False. If set to False, each bias is
-        initialized with default value 1. Else, each bias is initialized
-        with random value between -1 and 1 (upper bound exclusive).
     
     Attributes
     ----------
@@ -39,8 +34,6 @@ class Neural:
 
     `weights` : List[ndarray], neural network weights for each connection
         between i-th layer to (i+1)-th layer.
-
-    `biases` : ndarray, bias for each layer (exc. output layer).
 
     `activation_funcs` : List[str], list of activation function acronym for
         each layer (exc. input layer). Default activation for each layer is
@@ -54,7 +47,7 @@ class Neural:
         - 'sfmx' : softmax
     """
 
-    def __init__(self, neuron_each_layer: List[int] = [0, 0], random_weight: bool = True, weight_range: Tuple[float, float] = (-1, 1), random_bias: bool = False):
+    def __init__(self, neuron_each_layer: List[int] = [0, 0], random_weight: bool = True, weight_range: Tuple[float, float] = (-1, 1)):
         self.__depth = len(neuron_each_layer)
         self.__neuron_each_layer = neuron_each_layer
         self.__weights = []
@@ -63,7 +56,8 @@ class Neural:
         
         # Map to get each activation function easier
         self.__activation_map = {"sigm": self.__sigmoid, "linr": self.__linear,
-                                "relu": self.__reLU, "sfmx": self.__softmax}
+                                "relu": self.__reLU, "lelu": self.__leLU,
+                                "sfmx": self.__softmax}
         
         for i in range(self.__depth - 1):
             # Initializing i-th layer
@@ -78,14 +72,6 @@ class Neural:
                         w = np.random.uniform(weight_range[0], high=weight_range[1])
                     
                     self.__weights[i][j][k] = w
-        
-        for i in range(self.__depth - 1):
-            # Initializing i-th bias
-            b = 1
-            if random_bias:
-                b = np.random.uniform(-1, high=1)
-            
-            self.__biases[i] = b
     
     
     def get_depth(self) -> int:
@@ -198,8 +184,9 @@ class Neural:
         -------
         ndarray,
             result of linear derivative function
-        """        
-        return np.where(inputs == inputs, 1, 0)
+        """
+        size = len(inputs)
+        return np.ones(size)
     
     def __sigmoid(self, inputs: np.ndarray) -> np.ndarray:
         """Calculate sigmoid activation value for each element
@@ -319,7 +306,8 @@ class Neural:
             result of softmax activation function
         """
         res = np.exp(inputs)
-        return res / res.sum()
+        sums = res.sum()
+        return res / sums
 
     def __do_per_dnet(self, inputs: np.ndarray, act: str) -> np.ndarray:
         """Calculate do/dnet for each activation function with
@@ -366,10 +354,9 @@ class Neural:
         self.__sum = [None]
         inp = instance
         for j in range(1, self.__depth):
-            # Create inputs matrix (bias value + input for each layer)
+            # Create inputs matrix (1 + input for each layer)
             # and weights matrix
-            bias = np.array([self.__biases[j-1]])
-            inp = np.concatenate((bias, inp), axis=None)
+            inp = np.concatenate((np.ones(1), inp), axis=None)
             weights = self.get_weights_from_layer(j-1)
             
             # Matrix multiplication (inputs X weights)
@@ -391,7 +378,6 @@ class Neural:
 
         return inp
 
-    # TODO : fixing backward propagation
     def fit(self, training_data: Tdata, batch_size: int = 1, learning_rate: float = 0.1, threshold: float = 0.001, max_iter: int = 100) -> None:
         """Backpropagation algorithm implementation. Used by neural
         network to learn from given training data.
@@ -414,8 +400,17 @@ class Neural:
             maximum number of iteration, by default 100
         """
         for epoch in range(max_iter):
-            error = 0; count = 0
-            neuron_error = [None for i in range(self.__depth)]
+            # Initialize loss and count value
+            loss = 0
+            count = 0
+
+            # Initialize delta (dE/dnet) for each layer
+            delta = [None for i in range(self.__depth)]
+
+            # Initialize dE/dw for each layer
+            dE_per_dw = [None for i in range(self.__depth)]
+            
+            # Get number of instances from training data
             data_size = training_data.get_size()
 
             for i in range(data_size):
@@ -430,30 +425,42 @@ class Neural:
                 correct_idx = 0
                 if self.__activation_funcs[self.__depth - 1] == "sfmx":
                     correct_idx = np.where(target == 1)[0][0]
-                    error += -np.log(target[correct_idx])
+                    loss += -np.log(output[correct_idx])
                 else:
-                    error += (0.5 * (target - output)**2).sum()
+                    loss += (0.5 * (target - output)**2).sum()
                 
                 # BACKWARD PROPAGATION
-                # Calculate delta_output
+                
+                # >> OUTPUT LAYER <<
+                # Get index of output layer
                 output_layer_idx = self.__depth - 1
+                
+                # Get activation function of output layer
                 act = self.__activation_funcs[output_layer_idx]
+                
+                # Calculate dE/do for each neuron in output layer
                 dE_per_do = output - target
+                
                 if act != "sfmx":
-                    # Calculate dE_per_dnet if activation function is not softmax
+                    # Calculate dE/dnet if activation function is not softmax
                     do_per_dnet = self.__do_per_dnet(self.__sum[output_layer_idx], act)
-                    dE_per_dnet = dE_per_do * do_per_dnet
+                    dEo_per_dnet = dE_per_do * do_per_dnet
                 else:
-                    # Calculate dE_per_dnet if activation function is softmax
+                    # Calculate dE/dnet if activation function is softmax
                     output_idx = np.where(output == output)[0]
-                    dE_per_dnet = np.where(output_idx == correct_idx, output - 1, output)
-                dnet_per_dw = self.__neuron_output[output_layer_idx - 1]
-                dE_per_dw = dE_per_dnet * dnet_per_dw
+                    dEo_per_dnet = np.where(output_idx == correct_idx, output - 1, output)
+                
+                # Save dE/dnet (delta) for output layer
+                delta[output_layer_idx] = dEo_per_dnet
+
+                # Get dE/dw for each weight
+                dnet_per_dw = (self.__neuron_output[output_layer_idx - 1]).reshape(-1, 1)
+                dEo_per_dw = dnet_per_dw * dEo_per_dnet
                 
                 # Save dE_per_dw
-                neuron_error[output_layer_idx] = dE_per_dw
+                dE_per_dw[output_layer_idx] = dEo_per_dw
                 
-                # Calculate delta_hidden for each layer
+                # >> HIDDEN LAYER <<
                 for j in range(self.__depth - 2, 0, -1):
                     # Get activation function for this layer
                     act = self.__activation_funcs[j]
@@ -461,29 +468,37 @@ class Neural:
                     # Get weight matrix (without bias)
                     weight_matrix = self.get_weights_from_layer(j)[1:]
                     
-                    # Calculate sum of dE_per_dh for each hidden unit
-                    dEh_per_do = (weight_matrix * neuron_error[j+1][None, :]).sum(axis=1)
+                    # Calculate dE/do each neuron in hidden layer
+                    dEh_per_do = (weight_matrix * delta[j+1][None, :]).sum(axis=1)
                     
-                    # Calculate dEh_per_dw for each hidden unit
+                    # Calculate dE/dnet for each neuron in hidden layer
                     dEh_per_dnet = dEh_per_do * self.__do_per_dnet(self.__sum[j], act)
-                    dEh_per_dw = dEh_per_dnet * self.__neuron_output[j-1]
+                    
+                    # Save delta (dE/dnet) for current hidden layer
+                    delta[j] = dEh_per_dnet
+                    
+                    # Calculate dE/dw for each neuron in hidden layer
+                    dnet_per_dw = (self.__neuron_output[j-1]).reshape(-1, 1)
+                    dEh_per_dw = dnet_per_dw * dEh_per_dnet
                     
                     # Save dEh_per_dw
-                    neuron_error[j] = dEh_per_dw
+                    dE_per_dw[j] = dEh_per_dw
 
                 # UPDATE WEIGHT
                 if count % batch_size == 0 or (count % batch_size != 0 and count == data_size):
                     for a in range(self.__depth - 1):
                         for b in range(self.__neuron_each_layer[a]+1):
-                            for c in range(self.__neuron_each_layer[a+1]):
-                                self.__weights[a][b][c] -= learning_rate * neuron_error[a+1][c]
-
-            # Break if error less than threshold
-            if error < threshold:
+                            if b == 0:
+                                # Update bias weights
+                                self.__weights[a][b] -= learning_rate * delta[a+1]
+                            else:
+                                # Update neuron weights
+                                self.__weights[a][b] -= learning_rate * dE_per_dw[a+1][b-1]
+            
+            # Stop iteration if error less or equal than threshold
+            if loss <= threshold:
                 break
 
-
-    # TODO : implement prediction function
     def predict(self, prediction_data: Tdata) -> np.ndarray:
         """Predict class for each instance in prediction data.
         
@@ -497,7 +512,27 @@ class Neural:
         ndarray,
             Target class for each instance from prediction data
         """
-        pass
+        # Initialize result dimension
+        size = prediction_data.get_size()
+        n_out = self.__neuron_each_layer[self.__depth - 1]
+        
+        # Initialize result
+        res = np.empty((size, n_out))
+
+        # Insert forward result to result
+        for i in range(size):
+            inputs = prediction_data.get_instance(i)
+            res[i] = self.forward(inputs)
+        
+        # Round result to nearest interger
+        res = np.rint(res)
+        
+        # Return result (flatten it first if output layer only has 1 neuron)
+        if n_out == 1:
+            return res.flatten()
+        else:
+            return res
+
 
     def save(self, file_name: str,  path: str = "") -> None:
         """Save neural network model to an external `.json` file.
@@ -518,7 +553,6 @@ class Neural:
             "depth" : self.__depth,
             "neuron_each_layer" : self.__neuron_each_layer,
             "weights" : weights_list,
-            "biases" : self.__biases.tolist(),
             "activation_funcs" : self.__activation_funcs
         }
         
@@ -542,7 +576,6 @@ class Neural:
             self.__depth = json_obj['depth']
             self.__neuron_each_layer = json_obj['neuron_each_layer']
             self.__weights = [np.array(weight) for weight in json_obj['weights']]
-            self.__biases = np.array(json_obj['biases'])
             self.__activation_funcs = json_obj['activation_funcs']
 
     def show(self, file_name: str, view: bool = False) -> None:
