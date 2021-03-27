@@ -451,10 +451,10 @@ class Neural:
                     dEo_per_dnet = np.where(output_idx == correct_idx, output - 1, output)
                 
                 # Save dE/dnet (delta) for output layer
-                if delta[output_layer_idx] == None:
-                    delta[output_layer_idx] = dEo_per_dnet
-                else:
+                try:
                     delta[output_layer_idx] += dEo_per_dnet
+                except:
+                    delta[output_layer_idx] = dEo_per_dnet
 
                 # Get dE/dw for each weight
                 dnet_per_dw = (self.__neuron_output[output_layer_idx - 1]).reshape(-1, 1)
@@ -478,10 +478,10 @@ class Neural:
                     dEh_per_dnet = dEh_per_do * self.__do_per_dnet(self.__sum[j], act)
                     
                     # Save delta (dE/dnet) for current hidden layer
-                    if delta[j] == None:
-                        delta[j] = dEh_per_dnet
-                    else:
+                    try:
                         delta[j] += dEh_per_dnet
+                    except:
+                        delta[j] = dEh_per_dnet
 
                     # Calculate dE/dw for each neuron in hidden layer
                     dnet_per_dw = (self.__neuron_output[j-1]).reshape(-1, 1)
