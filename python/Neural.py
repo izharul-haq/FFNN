@@ -525,18 +525,23 @@ class Neural:
         # Initialize result
         res = np.empty((size, n_out))
 
-        # Insert forward result to result
         for i in range(size):
-            inputs = prediction_data.get_instance(i)
-            res[i] = self.forward(inputs)
-        
-        # Round result to nearest interger
-        res = np.rint(res)
-        
-        # Return result (flatten it first if output layer only has 1 neuron)
+            res[i] = self.forward(prediction_data.get_instance(i))
+
+        # If output is unilabel
         if n_out == 1:
+            # Round probability to nearest integer
+            res = np.rint(res)
+            
+            # Return array of class prediction
             return res.flatten()
+        
+        # If output is multilabel
         else:
+            for i in range(size):
+                # Round highest probability to 1 else 0
+                res[i] = np.where(res[i] == np.amax(res[i]), 1, 0)
+
             return res
 
 

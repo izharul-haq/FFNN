@@ -104,6 +104,28 @@ class Tdata:
         """
         return self.__trgt[idx]
 
+    def get_some(self, start_idx: int, end_idx: int) -> 'Tdata':
+        """ Get a portion of dataset starting from `start_idx`
+        to `end_idx` (half-open).
+        
+        Parameters
+        ----------
+        `start_idx` : int,
+            first index
+        
+        `end_idx` : int,
+            last index
+
+        Returns
+        -------
+            Tdata,
+                a portion of dataset
+        """
+        new_data = self.__data[start_idx: end_idx]
+        new_trgt = self.__trgt[start_idx: end_idx]
+
+        return Tdata(new_data, new_trgt)
+
 
     def save(self, file_name: str, path: str = "") -> None:
         """Save training data (data & target) to an external `.json` file.
