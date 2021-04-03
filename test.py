@@ -33,7 +33,7 @@ for training_data in train_data_list:
 nn_model.show('model_iris')
 
 # Predict testing model
-pred = nn_model.predict(test_data)
+pred = nn_model.predict(test_data.get_instances())
 pred = cl.multilabel_to_unilabel(pred)
 
 # Create confusion matrix

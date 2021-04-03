@@ -505,12 +505,12 @@ class Neural:
             if loss <= threshold:
                 break
 
-    def predict(self, prediction_data: Tdata) -> np.ndarray:
+    def predict(self, prediction_data: np.ndarray) -> np.ndarray:
         """Predict class for each instance in prediction data.
         
         Parameters
         ----------
-        `prediction_data` : Tdata,
+        `prediction_data` : ndarray,
             Data to predict
         
         Returns
@@ -519,14 +519,14 @@ class Neural:
             Target class for each instance from prediction data
         """
         # Initialize result dimension
-        size = prediction_data.get_size()
+        size = len(prediction_data)
         n_out = self.__neuron_each_layer[self.__depth - 1]
         
         # Initialize result
         res = np.empty((size, n_out))
 
         for i in range(size):
-            res[i] = self.forward(prediction_data.get_instance(i))
+            res[i] = self.forward(prediction_data[i])
 
         # If output is unilabel
         if n_out == 1:
