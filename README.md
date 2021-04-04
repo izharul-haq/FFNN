@@ -35,14 +35,14 @@ Simple feedforward neural network implementation using Python and NumPy
 
 2. Create a Neural model or load model from an external file (.json)
 
-  ```python
-  nn = Neural([2, 2, 1])
-  
-  # OR
-  
-  nn = Neural()
-  nn.load('model_file.json')
-  ```
+   ```python
+   nn = Neural([2, 2, 1])
+   
+   # OR
+   
+   nn = Neural()
+   nn.load('model_file.json')
+   ```
 
 3. Train model with `fit` method using Tdata object as training data
 
